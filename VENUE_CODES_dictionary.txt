@@ -1,0 +1,66 @@
+VENUE_CODES = {
+    # UCC TechFlex Spaces
+    "UCC Tech Flex Space A": "UCCA",
+    "UCC Tech Flex Space B": "UCCB", 
+    "UCC Tech Flex Space C": "UCCC",
+    if all the above are booked under the same event name and same date and time then use "UCCABC"
+    # UCC Rooms
+    "UCC 106": "UCCG",
+    "UCC The Commons": "UCCCOMMONS",
+    "UCC 1st Floor Lobby": "UCCLOBBY",
+    "UCC Pi Kitchen": "UCCPI",
+    "UCC Pre-function": "UCCPRE",
+    # Babbio
+    "Babbio 100": "BC100",
+    "Babbio 104": "BC104",
+    "Babbio 122": "BC122",
+    "Babbio 202": "BC202",
+    "Babbio 203": "BC203",
+    "Babbio 210": "BC210",
+    "Babbio 212": "BC212",
+    "Babbio 219": "BC219",
+    "Babbio 220": "BC220",
+    "Babbio 221": "BC221",
+    "Babbio 304": "BC304",
+    "Babbio 310": "BC310",
+    "Babbio 312": "BC312",
+    "Babbio 319": "BC319",
+    "Babbio 320": "BC320",
+    "Babbio 321": "BC321",
+    "Babbio East Patio": "BCEASTPATIO",
+    # Howe
+    "Howe 102": "HOWE102",
+    "Howe 104": "HOWE104",
+    "Howe 303": "HOWE303",
+    "Howe 404": "SKYLINE",
+    "Howe 409": "BISSINGER",
+    "Howe 1017": "HOWE1017",
+    "Howe 4th Floor": "HOWE4",
+    # Walker
+    "Walker Gym": "WALKERGYM",
+    "Walker 102": "WALKER102",
+    # Gateway
+    "Gateway South": "GWS",
+    "Gateway North": "GWN",
+    # Schaefer
+    "Schaefer Swimming Pool": "SCHPOOL",
+    "Schaefer Wrestling Room": "SCHWRESTLING",
+    "Schaefer Canavan Arena": "SCHCANAVAN",
+    "Schaefer Athletic Training": "SCHATC",
+    "Schaefer DeBaun Field": "SCHFIELD",
+    "Schaefer 309": "SCH309",
+    # DeBaun
+    "DeBaun Auditorium": "DEBAUN",
+    # Other buildings
+    "Burchard": "BURCH",
+    "Carnegie": "CARN",
+    "Edwin A. Stevens": "EAS",
+    "McLean": "MCLEAN",
+    "Morton": "MORTON",
+    "Peirce": "PEIRCE",
+    "North Building": "NORTH",
+    "Martha Bayard Stevens": "MBS",
+    "Griffith": "GRIFF",
+    "Library": "LIB",
+    "Kidde": "KIDDE",
+}
