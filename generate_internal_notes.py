@@ -1,57 +1,25 @@
 """
 Internal Events Notes Generator
-================================
-This script automates generating "Internal Events Notes" from a Coursedog-exported CSV file.
 
-Author: Auto-generated
-Date: January 2026
-
-ASSUMPTIONS & NOTES:
---------------------
-1. The CSV file MUST contain a "Process_Event" column with values YES/NO (case-insensitive)
-2. If a "Setup_Requirements" column exists, it will be used for TechFlex notes
-   - If missing, the script will use a placeholder "[Setup requirements not specified in CSV]"
-   - You can add this column to your CSV to include specific setup requirements
-3. Venue codes are derived from location names (see VENUE_CODES dictionary)
-4. Facilities work hours: 8:00 AM - 5:00 PM
-5. Lunch break (no setup): 12:00 PM - 1:00 PM
-6. Default setup time: 2 hours before event start
-
-REQUIRED CSV COLUMNS:
----------------------
-- Event Name
-- Date & Time (or separate Date and Time columns)
-- Location
-- Process_Event (YES/NO)
-
-OPTIONAL CSV COLUMNS:
----------------------
-- Setup_Requirements: copy paste the setup from Coursedog maunually in the csv file
-- Account Number: copy paste the account number from Coursedog maunually in the csv file
+This script automates the generation of Internal Events Notes from Coursedog CSV exports.
+It normalizes the CSV data, applies business rules for setup/breakdown times, and generates
+formatted notes for events marked with Process_Event = YES.
 """
 
 import csv
-import re
+import os
 from datetime import datetime, timedelta
 from collections import defaultdict
-from typing import Dict, List, Tuple, Optional
-import os
 
 # =============================================================================
-# CONFIGURATION - Modify these as needed
+# CONFIGURATION DICTIONARIES
 # =============================================================================
 
-# Venue code mapping - add more as needed
-# Format: "Location Name (or partial match)": "VENUE_CODE"
 VENUE_CODES = {
     # UCC TechFlex Spaces
     "UCC Tech Flex Space A": "UCCA",
-    "UCC Tech Flex Space B": "UCCB", 
+    "UCC Tech Flex Space B": "UCCB",
     "UCC Tech Flex Space C": "UCCC",
-    # if all the above are booked under the same event name and same date and time then use "UCCABC"
-    # if (UCC Tech Flex Space B, UCC Tech Flex Space C) booked under the same event name and same date and time then use "UCCBC"
-    # if (UCC Tech Flex Space A, UCC Tech Flex Space B) booked under the same event name and same date and time then use "UCCAB"
-    # if the above are booked under different event names and same date and time then add "Close the wall between A and B, B and C"
     # UCC Rooms
     "UCC 106": "UCCG",
     "UCC The Commons": "UCCCOMMONS",
@@ -113,684 +81,482 @@ VENUE_CODES = {
     "Kidde": "KIDDE",
 }
 
-# Setup label mapping - determines what prefix to use for setup requirements
-# Based on venue code or location name
-# Format: "VENUE_CODE" or "Location partial match": "Label"
 SETUP_LABELS = {
-    # TechFlex venues use "TechFlex:"
+    # TechFlex venues
     "UCCA": "TechFlex",
     "UCCB": "TechFlex",
     "UCCC": "TechFlex",
     "UCCABC": "TechFlex",
-    "UCCPI": "TechFlex",
-    "UCC Tech Flex": "TechFlex",
-    "UCC Pi Kitchen": "TechFlex",
-    
-    # Gallery uses "Gallery:"
+    # UCC
     "UCCG": "Gallery",
-    "UCC 106": "Gallery",
-    "The Gallery": "Gallery",
-    
-    # Babbio East Patio uses "Babbio East Patio:"
+    "UCCCOMMONS": "UCC The Commons",
+    "UCCLOBBY": "UCC 1st Floor Lobby",
+    "UCCPI": "UCC PI Kitchen",
+    "UCCPRE": "UCC Pre-function",
+    # Babbio
+    "BC100": "Babbio 100",
+    "BC104": "Babbio 104",
+    "BC122": "Babbio 122",
+    "BC202": "Babbio 202",
+    "BC203": "Babbio 203",
+    "BC210": "Babbio 210",
+    "BC212": "Babbio 212",
+    "BC219": "Babbio 219",
+    "BC220": "Babbio 220",
+    "BC221": "Babbio 221",
+    "BC304": "Babbio 304",
+    "BC310": "Babbio 310",
+    "BC312": "Babbio 312",
+    "BC319": "Babbio 319",
+    "BC320": "Babbio 320",
+    "BC321": "Babbio 321",
     "BCEASTPATIO": "Babbio East Patio",
-    "Babbio East Patio": "Babbio East Patio",
-    
-    # Skyline uses "Skyline:"
-    "SKYLINE": "Skyline",
-    "Howe 404": "Skyline",
-    "Skyline": "Skyline",
-    
-    # Bissinger uses "Bissinger:"
-    "BISSINGER": "Bissinger",
-    "Howe 409": "Bissinger",
-    "Howe 4th Floor": "Bissinger",
-    "Bissinger": "Bissinger",
-}
-
-# Facilities working hours
-WORK_START = 8  # 8:00 AM
-WORK_END = 20   # 8:00 PM
-LUNCH_START = 12  # 12:00 PM
-LUNCH_END = 13    # 1:00 PM
-DEFAULT_SETUP_HOURS = 2
-
-# Day names for formatting
-DAY_NAMES = {
-    0: "Monday",
-    1: "Tuesday", 
-    2: "Wednesday",
-    3: "Thursday",
-    4: "Friday",
-    5: "Saturday",
-    6: "Sunday"
+    # Howe
+    "HOWE102": "HOWE 102",
+    "HOWE104": "HOWE 104",
+    "HOWE303": "HOWE 303",
+    "SKYLINE": "SKYLINE",
+    "BISSINGER": "BISSINGER",
+    "HOWE1017": "HOWE 1017",
+    "HOWE4": "HOWE 4th Floor",
+    # Walker
+    "WALKERGYM": "Walker Gym",
+    "WALKER102": "Walker 102",
+    # Gateway
+    "GWS": "GATEWAY SOUTH",
+    "GWN": "GATEWAY NORTH",
+    # Schaefer
+    "SCHPOOL": "Schaefer Swimming Pool",
+    "SCHWRESTLING": "Schaefer Wrestling Room",
+    "SCHCANAVAN": "Schaefer Canavan Arena",
+    "SCHATC": "Schaefer Athletic Training",
+    "SCHFIELD": "Schaefer DeBaun Field",
+    "SCH309": "Schaefer 309",
+    # DeBaun
+    "DEBAUN": "DeBaun Auditorium",
+    # Other
+    "BURCH": "Burchard",
+    "CARN": "Carnegie",
+    "EAS": "Edwin A. Stevens",
+    "MCLEAN": "McLean",
+    "MORTON": "Morton",
+    "PEIRCE": "Peirce",
+    "NORTH": "North Building",
+    "MBS": "Martha Bayard Stevens",
+    "GRIFF": "Griffith",
+    "LIB": "Library",
+    "KIDDE": "Kidde",
 }
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
-def parse_datetime(date_time_str: str) -> Tuple[Optional[datetime], Optional[datetime]]:
+def get_venue_code(location):
+    """Get venue code from location string using partial matching."""
+    for key, code in VENUE_CODES.items():
+        if key in location:
+            return code
+    return location[:10].upper().replace(" ", "")  # Fallback
+
+
+def get_setup_label(venue_code):
+    """Get setup label from venue code."""
+    return SETUP_LABELS.get(venue_code, venue_code)
+
+
+def parse_date_time(date_time_str):
     """
-    Parse various date/time formats from the CSV.
-    
+    Parse date/time string from CSV.
     Handles formats like:
-    - "Jan 27, 2026 6:30 PM - 9:00 PM"
-    - "27-Jan-26"
-    - "Jan 27, 2026"
-    
-    Returns: (start_datetime, end_datetime) or (None, None) if parsing fails
+    - "Feb 5, 2026 10:00 AM - 12:00 PM"
+    - "5-Feb-26"
+    Returns tuple: (date, start_time, end_time) or (date, None, None) for date-only
     """
-    if not date_time_str or date_time_str.strip() == "":
-        return None, None
-    
     date_time_str = date_time_str.strip()
     
-    # Pattern 1: "Jan 27, 2026 6:30 AM - 9:00 AM" or with PM
-    pattern1 = r"(\w{3} \d{1,2}, \d{4}) (\d{1,2}:\d{2} [AP]M) - (\d{1,2}:\d{2} [AP]M)"
-    match = re.match(pattern1, date_time_str)
-    if match:
-        date_str = match.group(1)
-        start_time_str = match.group(2)
-        end_time_str = match.group(3)
-        
+    # Check for date-only format like "5-Feb-26"
+    if " - " not in date_time_str and ":" not in date_time_str:
         try:
-            start_dt = datetime.strptime(f"{date_str} {start_time_str}", "%b %d, %Y %I:%M %p")
-            end_dt = datetime.strptime(f"{date_str} {end_time_str}", "%b %d, %Y %I:%M %p")
-            return start_dt, end_dt
-        except ValueError:
-            pass
-    
-    # Pattern 1b: With date spanning midnight like "Jan 27, 2026 10:00 PM - Jan 28, 2026 1:00 AM"
-    pattern1b = r"(\w{3} \d{1,2}, \d{4}) (\d{1,2}:\d{2} [AP]M) - (\w{3} \d{1,2}, \d{4}) (\d{1,2}:\d{2} [AP]M)"
-    match = re.match(pattern1b, date_time_str)
-    if match:
-        start_date_str = match.group(1)
-        start_time_str = match.group(2)
-        end_date_str = match.group(3)
-        end_time_str = match.group(4)
-        
-        try:
-            start_dt = datetime.strptime(f"{start_date_str} {start_time_str}", "%b %d, %Y %I:%M %p")
-            end_dt = datetime.strptime(f"{end_date_str} {end_time_str}", "%b %d, %Y %I:%M %p")
-            return start_dt, end_dt
-        except ValueError:
-            pass
-    
-    # Pattern 2: "27-Jan-26" (date only, no time)
-    pattern2 = r"(\d{1,2})-(\w{3})-(\d{2})"
-    match = re.match(pattern2, date_time_str)
-    if match:
-        try:
-            # Assume year is 2000s
             dt = datetime.strptime(date_time_str, "%d-%b-%y")
-            return dt, dt
+            return dt.date(), None, None
         except ValueError:
             pass
     
-    # Pattern 3: Just date like "Jan 27, 2026"
+    # Handle full datetime range like "Feb 5, 2026 10:00 AM - 12:00 PM"
     try:
-        dt = datetime.strptime(date_time_str, "%b %d, %Y")
-        return dt, dt
-    except ValueError:
-        pass
+        # Split by " - " to separate start and end times
+        if " - " in date_time_str:
+            parts = date_time_str.split(" - ")
+            start_part = parts[0].strip()
+            end_part = parts[1].strip()
+            
+            # Parse start datetime
+            start_dt = datetime.strptime(start_part, "%b %d, %Y %I:%M %p")
+            event_date = start_dt.date()
+            start_time = start_dt.time()
+            
+            # Parse end time (may or may not include date)
+            try:
+                # Try with full date first (for overnight events)
+                end_dt = datetime.strptime(end_part, "%b %d, %Y %I:%M %p")
+                end_time = end_dt.time()
+            except ValueError:
+                # Just time
+                end_dt = datetime.strptime(end_part, "%I:%M %p")
+                end_time = end_dt.time()
+            
+            return event_date, start_time, end_time
+    except ValueError as e:
+        print(f"Warning: Could not parse date/time: {date_time_str} - {e}")
     
-    return None, None
+    return None, None, None
 
 
-def get_venue_code(location: str) -> str:
+def format_date_for_output(dt):
+    """Format date as 'DAY, MONTH DAY_NO' (e.g., 'Thursday, February 5')"""
+    return dt.strftime("%A, %B %d").replace(" 0", " ")
+
+
+def format_time_for_output(t):
+    """Format time as 'H:MM AM/PM'"""
+    if t is None:
+        return "TBD"
+    return t.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
+
+
+def is_am_event(start_time):
+    """Check if event starts in AM (before noon)."""
+    if start_time is None:
+        return True
+    from datetime import time
+    return start_time < time(12, 0)
+
+
+def calculate_setup_time(event_date, start_time, venue_code, all_events):
     """
-    Generate a venue code from the location name.
-    Checks VENUE_CODES dictionary for matches, otherwise generates from location.
+    Calculate setup time based on rules:
+    - Default: 2 hours before event
+    - No setup between 12:00 PM - 1:00 PM
+    - Facilities hours: 8:00 AM - 5:00 PM
+    - Early events (8 AM): setup at 6 AM (overtime)
+    - Evening events with no prior event: setup at 11 AM
+    - Weekend events with no back-to-back: Friday setup
+    Returns: (setup_datetime, warning_flag)
     """
-    if not location:
-        return "UNKNOWN"
+    from datetime import time, date
     
-    location_upper = location.upper()
+    warning = ""
     
-    # Check for exact or partial matches in VENUE_CODES
-    for key, code in VENUE_CODES.items():
-        if key.upper() in location_upper or location_upper.startswith(key.upper()):
-            return code
+    if start_time is None:
+        return None, ""
     
-    # Generate a code from the location name
-    # Take first letters of significant words, max 8 chars
-    words = re.findall(r'[A-Za-z]+', location)
-    if words:
-        code = ''.join(word[0].upper() for word in words[:4])
-        # Add any numbers from the location
-        numbers = re.findall(r'\d+', location)
-        if numbers:
-            code += numbers[0]
-        return code[:8] if len(code) > 8 else code
+    event_datetime = datetime.combine(event_date, start_time)
+    default_setup = event_datetime - timedelta(hours=2)
     
-    return "VENUE"
-
-
-def get_setup_label(location: str, venue_code: str) -> str:
-    """
-    Get the appropriate setup label prefix based on the venue/location.
+    # Check for back-to-back events in same venue
+    same_venue_events = [e for e in all_events 
+                         if e.get("venue_code") == venue_code 
+                         and e.get("event_date") == event_date
+                         and e.get("end_time") is not None
+                         and e.get("start_time") != start_time]
     
-    Different venues have different labels:
-    - TechFlex spaces → "TechFlex"
-    - UCC 106 (Gallery) → "Gallery"
-    - Babbio East Patio → "Babbio East Patio"
-    - Howe 404 (Skyline) → "Skyline"
-    - Howe 409 (Bissinger) → "Bissinger"
-    - Default → "Setup" for unknown venues
+    # Check if there's a prior event ending within 30 min of setup time
+    for other in same_venue_events:
+        if other.get("end_time"):
+            other_end = datetime.combine(event_date, other["end_time"])
+            gap = (event_datetime - other_end).total_seconds() / 60
+            if 0 <= gap < 30:
+                warning = " [WARNING: Back-to-back event, verify setup time]"
     
-    Returns: The label string (without colon)
-    """
-    # First check by venue code
-    if venue_code in SETUP_LABELS:
-        return SETUP_LABELS[venue_code]
+    # Early morning event (before 10 AM) - setup at 6 AM with overtime
+    if start_time <= time(10, 0):
+        setup_time = time(6, 0)
+        return datetime.combine(event_date, setup_time), warning
     
-    # Then check by location name (partial match)
-    if location:
-        location_lower = location.lower()
-        for key, label in SETUP_LABELS.items():
-            if key.lower() in location_lower:
-                return label
+    # Check if event is in evening (after 5 PM) with no prior event same day
+    if start_time >= time(17, 0):
+        has_prior_event = any(
+            e.get("start_time") and e.get("start_time") < start_time
+            for e in same_venue_events
+        )
+        if not has_prior_event:
+            setup_time = time(11, 0)
+            return datetime.combine(event_date, setup_time), warning
     
-    # Default label for unknown venues
-    return "Setup"
-
-
-def get_am_pm(dt: datetime) -> str:
-    """Return AM or PM based on the datetime hour."""
-    return "AM" if dt.hour < 12 else "PM"
-
-
-def generate_reservation_number(event_date: datetime, venue_code: str, start_time: datetime) -> str:
-    """
-    Generate reservation number in format: MMDD + VENUE_CODE + AM/PM
-    
-    Example: 0127UCCABCPM
-    """
-    mmdd = event_date.strftime("%m%d")
-    am_pm = get_am_pm(start_time)
-    return f"{mmdd}{venue_code}{am_pm}"
-
-
-def calculate_setup_time(event_start: datetime, same_venue_events: List[dict]) -> datetime:
-    """
-    Calculate setup time following these rules:
-    1. Default: 2 hours before event start
-    2. Facilities work hours: 8:00 AM - 8:00 PM
-    3. No setup during 12:00 PM - 1:00 PM (lunch)
-    4. If another event exists before in same venue, setup after it ends
-    
-    Returns: setup datetime
-    """
-    # Start with 2 hours before event
-    setup_time = event_start - timedelta(hours=DEFAULT_SETUP_HOURS)
-    
-    # Check if setup falls during lunch break (12 PM - 1 PM)
-    if setup_time.hour == 12:
-        # Move to 11 AM
-        setup_time = setup_time.replace(hour=11, minute=0)
-    elif setup_time.hour < 12 and (setup_time + timedelta(hours=DEFAULT_SETUP_HOURS)).hour > 12:
-        # Setup would span lunch, start earlier
-        setup_time = setup_time.replace(hour=11, minute=0)
-    
-    # Ensure setup is within work hours (8 AM - 8 PM)
-    if setup_time.hour < WORK_START:
-        setup_time = setup_time.replace(hour=WORK_START, minute=0)
-    elif setup_time.hour >= WORK_END:
-        # Setup needs to be day before or early same day
-        setup_time = setup_time.replace(hour=WORK_START, minute=0)
-    
-    # Check for conflicts with other events in the same venue
-    for other_event in same_venue_events:
-        other_end = other_event.get('end_time')
-        other_start = other_event.get('start_time')
+    # Weekend check - schedule for Friday if possible
+    weekday = event_date.weekday()
+    if weekday in (5, 6):  # Saturday or Sunday
+        friday = event_date - timedelta(days=(weekday - 4))
         
-        if other_end and other_start:
-            # If the other event ends before our event starts on the same day
-            if (other_end.date() == event_start.date() and 
-                other_end < event_start and 
-                other_end > setup_time):
-                # Adjust setup to start after the previous event ends
-                setup_time = other_end
-                # Add 15-minute buffer
-                setup_time = setup_time + timedelta(minutes=15)
-    
-    return setup_time
-
-
-def calculate_breakdown_time(event_end: datetime, same_venue_events: List[dict]) -> Tuple[datetime, str]:
-    """
-    Calculate breakdown time following these rules:
-    1. If event ends after 8 PM → breakdown next day at 10:00 AM
-    2. If another event exists after in same venue → breakdown before it starts
-    3. Otherwise → breakdown immediately after event end
-    
-    Returns: (breakdown_datetime, note_if_any)
-    """
-    note = ""
-    
-    # Rule 1: Event ends after 8 PM
-    if event_end.hour >= WORK_END:
-        next_day = event_end + timedelta(days=1)
-        breakdown_time = next_day.replace(hour=10, minute=0, second=0, microsecond=0)
-        return breakdown_time, note
-    
-    # Check for subsequent events in the same venue
-    for other_event in same_venue_events:
-        other_start = other_event.get('start_time')
+        # Check if Friday has events in this venue
+        friday_events = [e for e in all_events 
+                        if e.get("venue_code") == venue_code 
+                        and e.get("event_date") == friday]
         
-        if other_start:
-            # If there's an event starting after this one on the same day
-            if (other_start.date() == event_end.date() and 
-                other_start > event_end):
-                # Breakdown must occur before next event
-                breakdown_time = event_end + timedelta(minutes=15)
-                if breakdown_time >= other_start:
-                    breakdown_time = event_end  # Immediate breakdown
-                    note = f"(Before next event at {other_start.strftime('%I:%M %p')})"
-                return breakdown_time, note
+        if not friday_events:
+            setup_time = time(11, 0)
+            return datetime.combine(friday, setup_time), " [Friday setup]"
     
-    # Rule 3: Default - breakdown immediately after
-    breakdown_time = event_end
-    return breakdown_time, note
+    # Default: 2 hours before, but avoid lunch break
+    setup_hour = default_setup.hour
+    setup_minute = default_setup.minute
+    
+    # If setup would fall during lunch (12-1 PM), move to 11 AM
+    if 12 <= setup_hour < 13:
+        setup_time = time(11, 0)
+        return datetime.combine(event_date, setup_time), warning
+    
+    return default_setup, warning
 
 
-def format_datetime_for_notes(dt: datetime, include_time: bool = True) -> str:
+def calculate_breakdown_time(event_date, end_time, venue_code, all_events, has_setup):
     """
-    Format datetime for Internal Events Notes.
-    Example: "Tuesday, January 27, at 4:30 PM"
+    Calculate breakdown time based on rules:
+    - Default: after event end
+    - No breakdown between 12:00 PM - 1:00 PM
+    - If event ends after 3 PM: next day in AM
+    - Exception: if next day is weekend AND no setups, can be 4 PM
+    Returns: (breakdown_datetime_or_str, warning_flag)
     """
-    day_name = DAY_NAMES[dt.weekday()]
+    from datetime import time
     
-    if include_time:
-        time_str = dt.strftime("%I:%M %p").lstrip("0").replace(" 0", " ")
-        return f"{day_name}, {dt.strftime('%B')} {dt.day}, at {time_str}"
-    else:
-        return f"{day_name}, {dt.strftime('%B')} {dt.day}"
-
-
-def detect_techflex_abc_booking(events: List[dict]) -> Dict[str, List[dict]]:
-    """
-    Detect when UCC Tech Flex Space A, B, and C are ALL booked
-    under the SAME event name on the SAME date.
+    if end_time is None:
+        return None, ""
     
-    Returns: Dictionary mapping combined_key to list of events that should use UCCABC code
-    """
-    techflex_events = defaultdict(list)
-    combined_bookings = {}
+    event_end = datetime.combine(event_date, end_time)
     
-    # Filter for TechFlex events only
-    for event in events:
-        location = event.get('location', '')
-        if 'UCC Tech Flex Space' in location:
-            # Create a key: event_name + date
-            event_name = event.get('event_name', '').strip().lower()
-            event_date = event.get('start_time')
-            if event_date:
-                key = f"{event_name}_{event_date.strftime('%Y-%m-%d')}"
-                techflex_events[key].append(event)
-    
-    # Check which keys have all three spaces (A, B, C)
-    for key, event_list in techflex_events.items():
-        spaces = set()
-        for evt in event_list:
-            loc = evt.get('location', '')
-            if 'Space A' in loc:
-                spaces.add('A')
-            elif 'Space B' in loc:
-                spaces.add('B')
-            elif 'Space C' in loc:
-                spaces.add('C')
+    # If event ends after 3 PM
+    if end_time >= time(15, 0):
+        next_day = event_date + timedelta(days=1)
+        next_weekday = next_day.weekday()
         
-        # If all three spaces are booked
-        if spaces == {'A', 'B', 'C'}:
-            combined_bookings[key] = event_list
-    
-    return combined_bookings
-
-
-def generate_internal_notes(event: dict, venue_code: str, same_venue_events: List[dict]) -> str:
-    """
-    Generate the Internal Events Notes block for a single event.
-    """
-    start_time = event.get('start_time')
-    end_time = event.get('end_time')
-    location = event.get('location', '')
-    setup_requirements = event.get('setup_requirements', '[Setup requirements not specified in CSV]')
-    
-    if not start_time or not end_time:
-        return f"# ERROR: Could not parse date/time for event: {event.get('event_name', 'Unknown')}\n"
-    
-    # Generate reservation number
-    reservation_number = generate_reservation_number(start_time, venue_code, start_time)
-    
-    # Calculate setup time
-    setup_time = calculate_setup_time(start_time, same_venue_events)
-    
-    # Calculate breakdown time
-    breakdown_time, breakdown_note = calculate_breakdown_time(end_time, same_venue_events)
-    
-    # Get the appropriate setup label based on venue
-    setup_label = get_setup_label(location, venue_code)
-    
-    # Format the notes
-    notes = []
-    notes.append("Account Number: __________")
-    notes.append(f"Reservation Number: {reservation_number}")
-    notes.append(f"Please set up on {format_datetime_for_notes(setup_time)}")
-    notes.append(f"{setup_label}: {setup_requirements}")
-    
-    breakdown_str = f"Please break down on {format_datetime_for_notes(breakdown_time)}"
-    if breakdown_note:
-        breakdown_str += f" {breakdown_note}"
-    notes.append(breakdown_str)
-    
-    return "\n".join(notes)
-
-
-def process_csv(input_file: str, output_format: str = "text") -> Tuple[List[str], List[dict]]:
-    """
-    Process the CSV file and generate Internal Events Notes.
-    
-    Args:
-        input_file: Path to the input CSV file
-        output_format: "text" for text file output, "csv" for CSV column output
-    
-    Returns:
-        Tuple of (list of notes strings, list of processed event dicts)
-    """
-    events = []
-    all_events = []  # ALL events from CSV for detecting combined bookings
-    notes_output = []
-    
-    # Read and parse CSV - FIRST PASS: Load ALL events to detect combined bookings
-    with open(input_file, 'r', encoding='utf-8-sig') as f:
-        reader = csv.DictReader(f)
-        fieldnames = reader.fieldnames
+        # Exception: weekend with no setups
+        if next_weekday in (5, 6) and not has_setup:
+            breakdown_time = time(16, 0)  # 4 PM
+            return datetime.combine(event_date, breakdown_time), ""
         
-        for row in reader:
-            # Extract event data from ALL rows
-            event_name = None
-            date_time = None
-            location = None
-            setup_requirements = None
-            process_event = None
-            
-            for key, value in row.items():
-                if not key:
-                    continue
-                key_lower = key.strip().lower()
-                
-                if 'event' in key_lower and 'name' in key_lower:
-                    event_name = value
-                elif key_lower in ['event name', 'eventname']:
-                    event_name = value
-                elif 'date' in key_lower and 'time' in key_lower:
-                    date_time = value
-                elif key_lower == 'date & time':
-                    date_time = value
-                elif key_lower == 'location':
-                    location = value
-                elif 'setup' in key_lower or 'resource' in key_lower:
-                    setup_requirements = value
-                elif 'process' in key_lower:
-                    process_event = value
-            
-            # Fallback: use first column as event name if not found
-            if not event_name and fieldnames:
-                event_name = row.get(fieldnames[0], 'Unknown Event')
-            
-            # Parse date/time
-            start_time, end_time = parse_datetime(date_time)
-            
-            if start_time:
-                event_data = {
-                    'event_name': event_name,
-                    'location': location,
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'setup_requirements': setup_requirements or '[Setup requirements not specified in CSV]',
-                    'process_event': process_event,
-                    'raw_row': row
-                }
-                all_events.append(event_data)
-                
-                # Also add to events list if marked for processing
-                if process_event and process_event.strip().upper() == 'YES':
-                    events.append(event_data)
+        # Default: next day in AM (no specific time)
+        return f"the next day ({next_day.strftime('%A, %B %d')}) in the AM", ""
     
-    if not events:
-        return ["No events found with Process_Event = YES"], events
+    # Event ends during lunch break - move to 1 PM
+    if 12 <= end_time.hour < 13:
+        breakdown_time = time(13, 0)
+        return datetime.combine(event_date, breakdown_time), ""
     
-    # Detect TechFlex ABC combined bookings from ALL events (not just YES ones)
-    # This ensures we detect combined bookings even if only one space is marked YES
-    combined_bookings = detect_techflex_abc_booking(all_events)
+    # Default: right after event
+    return event_end, ""
+
+
+# =============================================================================
+# MAIN PROCESSING FUNCTIONS
+# =============================================================================
+
+def normalize_csv(rows):
+    """
+    Normalize CSV data:
+    1. Remove Setup and Teardown rows
+    2. Merge TechFlex A, B, C when all booked for same event/date/time
+    """
+    # Filter out Setup and Teardown
+    filtered = [r for r in rows if r.get("Meeting Type", "").strip() not in ("Setup", "Teardown")]
     
-    # Create a mapping of event name + date to combined booking info
-    combined_booking_keys = {}
-    for key, event_list in combined_bookings.items():
-        for evt in event_list:
-            # Map each individual event to its combined key
-            evt_key = f"{evt.get('event_name', '').strip().lower()}_{evt['start_time'].strftime('%Y-%m-%d')}"
-            combined_booking_keys[evt_key] = key
+    # Group by event name + date/time for TechFlex merging
+    techflex_groups = defaultdict(list)
+    other_rows = []
     
-    # Group ALL events by venue and date for conflict detection
-    venue_date_events = defaultdict(list)
-    for event in all_events:
-        venue_key = f"{event['location']}_{event['start_time'].strftime('%Y-%m-%d')}"
-        venue_date_events[venue_key].append(event)
-    
-    # Track which combined bookings have been processed
-    processed_combined = set()
-    
-    # Generate notes for each event marked for processing
-    for event in events:
-        # Check if this event is part of a combined TechFlex ABC booking
-        event_name = event.get('event_name', '').strip().lower()
-        event_date = event.get('start_time')
-        evt_key = f"{event_name}_{event_date.strftime('%Y-%m-%d')}" if event_date else ""
-        
-        is_combined = evt_key in combined_booking_keys
-        combined_key = combined_booking_keys.get(evt_key) if is_combined else None
-        
-        if is_combined and combined_key:
-            # Skip if we've already processed this combined booking
-            if combined_key in processed_combined:
-                continue
-            
-            processed_combined.add(combined_key)
-            venue_code = "UCCABC"
-            
-            # Update location to show combined booking
-            event['location'] = "UCC Tech Flex Space A, B, C (Combined)"
-            
-            # Get all setup requirements from the combined events
-            setup_reqs = []
-            for evt in combined_bookings[combined_key]:
-                req = evt.get('setup_requirements', '')
-                if req and req != '[Setup requirements not specified in CSV]':
-                    setup_reqs.append(req)
-            
-            if setup_reqs:
-                event['setup_requirements'] = '; '.join(set(setup_reqs))
+    for row in filtered:
+        location = row.get("Location", "")
+        if "UCC Tech Flex Space" in location:
+            key = (row.get("Event Name", ""), row.get("Date & Time", ""))
+            techflex_groups[key].append(row)
         else:
-            venue_code = get_venue_code(event.get('location', ''))
-        
-        # Get other events in the same venue on the same date for conflict detection
-        # For combined bookings, check all three TechFlex spaces
-        if is_combined:
-            same_venue_events = []
-            for space in ['UCC Tech Flex Space A', 'UCC Tech Flex Space B', 'UCC Tech Flex Space C']:
-                for evt in all_events:
-                    if space in evt.get('location', '') and evt['start_time'].strftime('%Y-%m-%d') == event_date.strftime('%Y-%m-%d'):
-                        if id(evt) != id(event) and evt.get('event_name', '').strip().lower() != event_name:
-                            same_venue_events.append(evt)
-        else:
-            venue_key = f"{event['location']}_{event['start_time'].strftime('%Y-%m-%d')}"
-            same_venue_events = [e for e in venue_date_events[venue_key] if id(e) != id(event)]
-        
-        # Generate notes
-        notes = generate_internal_notes(event, venue_code, same_venue_events)
-        
-        # Add header with event info
-        header = f"\n{'='*60}\nEvent: {event.get('event_name', 'Unknown')}\nLocation: {event.get('location', 'Unknown')}\nDate: {event['start_time'].strftime('%B %d, %Y')}\n{'='*60}\n"
-        
-        notes_output.append(header + notes)
+            other_rows.append(row)
     
-    return notes_output, events
+    # Process TechFlex groups
+    merged_rows = []
+    for key, group in techflex_groups.items():
+        locations = set(r.get("Location", "") for r in group)
+        has_a = any("Space A" in loc for loc in locations)
+        has_b = any("Space B" in loc for loc in locations)
+        has_c = any("Space C" in loc for loc in locations)
+        
+        if has_a and has_b and has_c:
+            # Merge into single UCCABC row
+            merged_row = group[0].copy()
+            merged_row["Location"] = "UCC Tech Flex Space ABC"
+            merged_row["_venue_code"] = "UCCABC"
+            merged_rows.append(merged_row)
+        else:
+            # Keep individual rows
+            merged_rows.extend(group)
+    
+    return other_rows + merged_rows
 
+
+def process_events(rows):
+    """Process all events and calculate setup/breakdown times."""
+    processed = []
+    
+    # First pass: parse all dates and venue codes
+    for row in rows:
+        event_date, start_time, end_time = parse_date_time(row.get("Date & Time", ""))
+        location = row.get("Location", "")
+        
+        # Use pre-set venue code for merged TechFlex, otherwise derive it
+        venue_code = row.get("_venue_code") or get_venue_code(location)
+        
+        row["event_date"] = event_date
+        row["start_time"] = start_time
+        row["end_time"] = end_time
+        row["venue_code"] = venue_code
+        processed.append(row)
+    
+    # Second pass: calculate setup/breakdown with context of all events
+    for row in processed:
+        setup_result, setup_warning = calculate_setup_time(
+            row["event_date"], 
+            row["start_time"], 
+            row["venue_code"],
+            processed
+        )
+        
+        has_setup = row.get("Setup_Requirements", "").strip() != ""
+        breakdown_result, breakdown_warning = calculate_breakdown_time(
+            row["event_date"],
+            row["end_time"],
+            row["venue_code"],
+            processed,
+            has_setup
+        )
+        
+        row["setup_datetime"] = setup_result
+        row["setup_warning"] = setup_warning
+        row["breakdown_result"] = breakdown_result
+        row["breakdown_warning"] = breakdown_warning
+    
+    return processed
+
+
+def generate_notes(events):
+    """Generate Internal Events Notes for events with Process_Event = YES."""
+    output_lines = []
+    
+    # Filter for Process_Event = YES
+    to_process = [e for e in events if e.get("Process_Event", "").strip().upper() == "YES"]
+    
+    # Sort by date and time
+    to_process.sort(key=lambda x: (x.get("event_date") or datetime.min.date(), 
+                                    x.get("start_time") or datetime.min.time()))
+    
+    for i, event in enumerate(to_process):
+        # Get values
+        account_number = event.get("Account Number", "").strip()
+        venue_code = event.get("venue_code", "")
+        setup_label = get_setup_label(venue_code)
+        setup_requirements = event.get("Setup_Requirements", "").strip()
+        
+        event_date = event.get("event_date")
+        start_time = event.get("start_time")
+        setup_datetime = event.get("setup_datetime")
+        setup_warning = event.get("setup_warning", "")
+        breakdown_result = event.get("breakdown_result")
+        breakdown_warning = event.get("breakdown_warning", "")
+        
+        # Format reservation number: MMDDVENUE_CODEAM/PM
+        if event_date and start_time:
+            am_pm = "AM" if is_am_event(start_time) else "PM"
+            reservation_number = f"{event_date.strftime('%m%d')}{venue_code}{am_pm}"
+        else:
+            reservation_number = f"{venue_code}"
+        
+        # Format setup line
+        if setup_datetime:
+            if isinstance(setup_datetime, datetime):
+                setup_date_str = format_date_for_output(setup_datetime)
+                setup_time_str = format_time_for_output(setup_datetime.time())
+                setup_line = f"Please set up on {setup_date_str}, at {setup_time_str}{setup_warning}"
+            else:
+                setup_line = f"Please set up on {setup_datetime}{setup_warning}"
+        else:
+            setup_line = "Please set up on TBD"
+        
+        # Format breakdown line
+        if breakdown_result:
+            if isinstance(breakdown_result, datetime):
+                breakdown_date_str = format_date_for_output(breakdown_result)
+                breakdown_time_str = format_time_for_output(breakdown_result.time())
+                breakdown_line = f"Please break down on {breakdown_date_str}, at {breakdown_time_str}{breakdown_warning}"
+            else:
+                breakdown_line = f"Please break down on {breakdown_result}{breakdown_warning}"
+        else:
+            breakdown_line = "Please break down on TBD"
+        
+        # Build the note block
+        note = f"""Account Number: {account_number}
+Reservation Number: {reservation_number}
+{setup_label}: {setup_requirements}
+{setup_line}
+{breakdown_line}"""
+        
+        output_lines.append(note)
+    
+    # Join with separator lines
+    separator = "\n" + "-" * 50 + "\n"
+    return separator.join(output_lines) + "\n"
+
+
+# =============================================================================
+# MAIN ENTRY POINT
+# =============================================================================
 
 def main():
-    """Main function to run the script."""
-    import sys
-    import argparse
-    import glob
-    
-    # Get the directory where this script is located
+    """Main function to run the Internal Events Notes generator."""
+    # Configuration
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    input_dir = os.path.join(script_dir, "input_csv")
+    output_dir = os.path.join(script_dir, "output")
     
-    # Define input and output folder paths
-    input_folder = os.path.join(script_dir, "input_csv")
-    output_folder = os.path.join(script_dir, "output")
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
     
-    # Create folders if they don't exist
-    os.makedirs(input_folder, exist_ok=True)
-    os.makedirs(output_folder, exist_ok=True)
+    # Find the most recent CSV file in input directory
+    csv_files = [f for f in os.listdir(input_dir) if f.endswith(".csv")]
+    if not csv_files:
+        print("Error: No CSV files found in input_csv directory")
+        return
     
-    parser = argparse.ArgumentParser(
-        description='Generate Internal Events Notes from Coursedog CSV export',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
-Folder Structure:
-  - Place CSV files in: {input_folder}
-  - Output will be saved to: {output_folder}
-
-Examples:
-  python generate_internal_notes.py                    # Process all CSVs in input_csv folder
-  python generate_internal_notes.py events.csv        # Process specific file from input_csv folder
-  python generate_internal_notes.py --output-csv      # Output as CSV with notes column
-        """
-    )
+    # Use the first CSV file (or you could sort by date)
+    input_file = os.path.join(input_dir, csv_files[0])
+    print(f"Processing: {input_file}")
     
-    parser.add_argument('input_csv', nargs='?', default=None,
-                        help='Input CSV filename (looked up in input_csv folder). If not provided, processes all CSVs in the folder.')
-    parser.add_argument('-o', '--output', default=None,
-                        help='Output filename (saved to output folder)')
-    parser.add_argument('--output-csv', action='store_true',
-                        help='Output as CSV with Internal_Events_Notes column')
+    # Read CSV
+    with open(input_file, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
     
-    args = parser.parse_args()
+    print(f"Read {len(rows)} rows from CSV")
     
-    # Find CSV files to process
-    if args.input_csv:
-        # Specific file provided
-        input_file = os.path.join(input_folder, args.input_csv)
-        if not os.path.exists(input_file):
-            # Try as absolute/relative path
-            if os.path.exists(args.input_csv):
-                input_file = args.input_csv
-            else:
-                print(f"ERROR: Input file not found: {args.input_csv}")
-                print(f"  Looked in: {input_folder}")
-                print(f"  Also tried: {args.input_csv}")
-                sys.exit(1)
-        csv_files = [input_file]
-    else:
-        # Find all CSV files in input folder
-        csv_files = glob.glob(os.path.join(input_folder, "*.csv"))
-        if not csv_files:
-            print(f"No CSV files found in: {input_folder}")
-            print(f"\nPlease place your Coursedog CSV export in the input_csv folder.")
-            sys.exit(0)
+    # Normalize (remove Setup/Teardown, merge TechFlex)
+    normalized = normalize_csv(rows)
+    print(f"After normalization: {len(normalized)} rows")
     
-    print(f"Input folder: {input_folder}")
-    print(f"Output folder: {output_folder}")
-    print(f"Found {len(csv_files)} CSV file(s) to process")
-    print("-" * 60)
+    # Process events (calculate times)
+    processed = process_events(normalized)
     
-    # Process each CSV file
-    all_notes = []
-    for input_file in csv_files:
-        print(f"\nProcessing: {os.path.basename(input_file)}")
-        print("-" * 40)
-        
-        # Process the CSV
-        notes_output, processed_events = process_csv(input_file)
-        
-        if not processed_events:
-            print("  No events found with Process_Event = YES")
-            print("  Make sure your CSV has a 'Process_Event' column with 'YES' values")
-            continue
-        
-        print(f"  Found {len(processed_events)} event(s) to process")
-        
-        # Determine output file name (in output folder)
-        input_basename = os.path.basename(input_file)
-        if args.output:
-            output_basename = args.output
-        elif args.output_csv:
-            output_basename = input_basename.replace('.csv', '_with_notes.csv')
-        else:
-            output_basename = input_basename.replace('.csv', '_internal_notes.txt')
-        
-        output_file = os.path.join(output_folder, output_basename)
-        
-        # Write output
-        if args.output_csv:
-            # Write CSV with new column
-            with open(input_file, 'r', encoding='utf-8-sig') as f:
-                reader = csv.DictReader(f)
-                fieldnames = list(reader.fieldnames) + ['Internal_Events_Notes']
-                rows = list(reader)
-            
-            # Create a mapping of processed events to their notes
-            event_notes_map = {}
-            for event, notes in zip(processed_events, notes_output):
-                key = f"{event.get('event_name', '')}_{event.get('location', '')}"
-                # Clean up the notes for CSV (remove header)
-                clean_notes = notes.split('='*60)[-1].strip()
-                event_notes_map[key] = clean_notes
-            
-            with open(output_file, 'w', encoding='utf-8', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writeheader()
-                
-                for row in rows:
-                    key = f"{row.get('Event Name', '')}_{row.get('Location', '')}"
-                    row['Internal_Events_Notes'] = event_notes_map.get(key, '')
-                    writer.writerow(row)
-            
-            print(f"  Output: {output_file}")
-        else:
-            # Write text file
-            with open(output_file, 'w', encoding='utf-8') as f:
-                f.write("INTERNAL EVENTS NOTES\n")
-                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write(f"Source: {os.path.basename(input_file)}\n")
-                f.write("=" * 60 + "\n")
-                
-                for notes in notes_output:
-                    f.write(notes)
-                    f.write("\n")
-            
-            print(f"  Output: {output_file}")
-        
-        # Collect notes for console output
-        all_notes.extend(notes_output)
+    # Count events to process
+    to_process = [e for e in processed if e.get("Process_Event", "").strip().upper() == "YES"]
+    print(f"Events to process (Process_Event=YES): {len(to_process)}")
     
-    # Print summary to console
-    if all_notes:
-        print("\n" + "=" * 60)
-        print("GENERATED INTERNAL EVENTS NOTES:")
-        print("=" * 60)
-        
-        for notes in all_notes:
-            print(notes)
-            print()
+    # Generate notes
+    output = generate_notes(processed)
     
-    print("\n" + "=" * 60)
-    print("DONE!")
-    print(f"Output files saved to: {output_folder}")
-    print("=" * 60)
+    # Write output
+    output_file = os.path.join(output_dir, "internal_notes.txt")
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(output)
+    
+    print(f"Output written to: {output_file}")
 
 
 if __name__ == "__main__":

@@ -1,213 +1,71 @@
 # Internal Events Notes Generator
 
-Automates the generation of "Internal Events Notes" from Coursedog-exported CSV files.
-
 ## Overview
 
-This script reads a Coursedog event export CSV, filters events marked for processing, and generates formatted Internal Events Notes following Stevens University facilities guidelines.
+This Python script automates the generation of Internal Events Notes from Coursedog CSV exports.
 
-## Folder Structure
+## Required CSV Columns
 
-```
-Events_Automation/
-├── input_csv/           ← Place your CSV files here
-│   └── events.csv
-├── output/              ← Generated notes appear here
-│   └── events_internal_notes.txt
-├── generate_internal_notes.py
-└── README.md
-```
+The input CSV must contain these columns:
 
-## Features
+| Column | Description |
+|--------|-------------|
+| Event Name | Name of the event |
+| Date & Time | Event date and time range (e.g., "Feb 5, 2026 10:00 AM - 12:00 PM") |
+| Location | Venue/room name |
+| Meeting Type | Must be "Main Meeting" to be processed (Setup/Teardown rows are filtered out) |
+| Process_Event | Set to "YES" for events that need notes generated |
+| Setup_Requirements | Setup instructions (e.g., "3 6ft tables") |
+| Account Number | Billing account (e.g., "CC1000190") |
 
-- **Auto-detect CSVs**: Automatically processes all CSV files in the `input_csv` folder
-- **Process_Event Filtering**: Only generates notes for events marked `YES` in the `Process_Event` column
-- **UCC TechFlex ABC Detection**: Automatically detects when all three TechFlex spaces (A, B, C) are booked for the same event and uses combined venue code `UCCABC`
-- **Venue-Specific Labels**: Uses correct labels (TechFlex, Gallery, Skyline, Bissinger, etc.) based on venue
-- **Smart Setup Time Calculation**:
-  - Default: 2 hours before event start
-  - Respects facilities work hours (8 AM - 5 PM)
-  - Avoids lunch break (12 PM - 1 PM)
-  - Adjusts for conflicting events in the same venue
-- **Smart Breakdown Time Calculation**:
-  - Events ending after 8 PM → breakdown next day at 10 AM
-  - Adjusts for subsequent events in the same venue
+## Manual Preprocessing Steps
 
-## Quick Start
+Before running the script:
 
-### 1. Prepare Your CSV
+1. Export the events report CSV from Coursedog
+2. Save it to the `input_csv/` folder
+3. Add/update these columns for relevant events:
+   - `Process_Event`: Set to "YES" for events needing notes
+   - `Setup_Requirements`: Enter setup details
+   - `Account Number`: Enter the billing account
 
-Add a `Process_Event` column to your Coursedog export with `YES` or `NO` values:
-
-| Event Name | Date & Time | Location | Meeting Type | Setup_Requirements | Process_Event |
-|------------|-------------|----------|--------------|-------------------|---------------|
-| Champion Quest | Jan 27, 2026 6:30 PM - 10:00 PM | UCC Tech Flex Space A | Main Meeting | 8 round tables | YES |
-| Other Event | Jan 27, 2026 2:00 PM - 4:00 PM | Babbio 202 | Main Meeting | | NO |
-
-### 2. Place CSV in input_csv folder
-
-Copy your CSV file(s) to the `input_csv` folder.
-
-### 3. Run the Script
+## How to Run
 
 ```bash
-# Process ALL CSV files in input_csv folder
+cd c:\Users\Royce Barboz\OneDrive\Desktop\Internal_notes_Automation
 python generate_internal_notes.py
-
-# Process a specific file from input_csv folder
-python generate_internal_notes.py my_events.csv
-
-# Output as CSV with notes column
-python generate_internal_notes.py --output-csv
 ```
 
-### 4. Get Your Notes
+Output will be written to `output/internal_notes.txt`.
 
-Output files are saved to the `output` folder with formatted notes like:
+## Rule Assumptions
+
+### Setup Time Rules
+
+- Default: 2 hours before event start
+- Early events (before 10 AM): Setup at 6:00 AM (overtime allowed)
+- Evening events (5 PM or later) with no prior event: Setup at 11:00 AM
+- Weekend events with no back-to-back: Setup on Friday at 11:00 AM
+- No setup during lunch break (12:00 PM - 1:00 PM)
+- Back-to-back events (less than 30 min gap): Warning symbol added
+
+### Breakdown Time Rules
+
+- Default: After event end time
+- Events ending after 3:00 PM: Breakdown next day in the AM
+- Exception: If next day is weekend and no setups, breakdown can be 4:00 PM
+- No breakdown during lunch break (12:00 PM - 1:00 PM)
+
+### TechFlex Merging
+
+When UCC Tech Flex Space A, B, and C are all booked for the same event name, date, and time, they are merged into a single UCCABC entry.
+
+## Output Format
 
 ```
-Account Number: __________
-Reservation Number: 0127UCCABCPM
-Please set up on Tuesday, January 27, at 4:30 PM
-TechFlex: 8-60in round tables with 10 chairs each
-Please break down on Wednesday, January 28, at 10:00 AM
+Account Number: CC1000190
+Reservation Number: 0205BC310PM
+Babbio 310: 3 6ft tables
+Please set up on Thursday, February 5, at 11:00 AM
+Please break down on the next day (Friday, February 6) in the AM
 ```
-
-## CSV Column Requirements
-
-### Required Columns
-| Column | Description |
-|--------|-------------|
-| `Event Name` | Name of the event |
-| `Date & Time` | Date and time range (e.g., "Jan 27, 2026 6:30 PM - 10:00 PM") |
-| `Location` | Venue name |
-| `Process_Event` | `YES` to generate notes, `NO` to skip |
-
-### Optional Columns
-| Column | Description |
-|--------|-------------|
-| `Setup_Requirements` or `Resources` | Equipment/furniture requirements for TechFlex notes |
-| `Meeting Type` | Type of meeting (informational only) |
-
-## Date/Time Formats Supported
-
-The script automatically parses these formats:
-- `Jan 27, 2026 6:30 PM - 10:00 PM` (full datetime range)
-- `Jan 27, 2026 10:00 PM - Jan 28, 2026 1:00 AM` (overnight events)
-- `27-Jan-26` (date only)
-- `Jan 27, 2026` (date only)
-
-## Reservation Number Format
-
-Generated as: `MMDD` + `VENUE_CODE` + `AM/PM`
-
-Examples:
-- `0127UCCABCPM` - Jan 27, UCC Tech Flex A+B+C, PM event
-- `0128UCC106AM` - Jan 28, UCC 106, AM event
-- `0205BAB100PM` - Feb 5, Babbio 100, PM event
-
-## UCC TechFlex ABC Combined Booking
-
-The script automatically detects when all three TechFlex spaces are booked:
-- Same event name
-- Same date
-- Spaces A, B, and C all present in CSV
-
-When detected:
-- Uses venue code `UCCABC`
-- Generates **one** combined note (not three separate ones)
-- Merges setup requirements from all three spaces
-
-**Important**: You only need to mark ONE of the three TechFlex rows as `YES` in `Process_Event` - the script will detect the combined booking automatically.
-
-## Venue Codes
-
-Common venue codes (add more in the script's `VENUE_CODES` dictionary):
-
-| Location | Code |
-|----------|------|
-| UCC Tech Flex Space A | UCCA |
-| UCC Tech Flex Space B | UCCB |
-| UCC Tech Flex Space C | UCCC |
-| UCC Tech Flex A+B+C | UCCABC |
-| UCC 106 (The Gallery) | UCC106 |
-| Babbio 100 (Atrium) | BAB100 |
-| Walker Gym | WALKERGYM |
-| Howe 409 (Bissinger) | HOWE409 |
-
-## Setup Time Rules
-
-1. **Default**: 2 hours before event start
-2. **Work Hours**: 8:00 AM - 8:00 PM only
-3. **Lunch Break**: No setup during 12:00 PM - 1:00 PM
-4. **Conflicts**: If another event ends just before yours in the same venue, setup starts after it ends
-
-## Breakdown Time Rules
-
-1. **After 8 PM**: Breakdown next day at 10:00 AM
-2. **Conflicts**: If another event starts after yours in the same venue, breakdown occurs before it
-3. **Default**: Immediately after event ends
-
-## Customization
-
-### Adding Venue Codes
-
-Edit the `VENUE_CODES` dictionary in `generate_internal_notes.py`:
-
-```python
-VENUE_CODES = {
-    "UCC Tech Flex Space A": "UCCA",
-    "My Custom Venue": "MYCODE",
-    # Add more...
-}
-```
-
-### Changing Work Hours
-
-Edit these constants in the script:
-
-```python
-WORK_START = 8   # 8:00 AM
-WORK_END = 20    # 8:00 PM
-LUNCH_START = 12 # 12:00 PM
-LUNCH_END = 13   # 1:00 PM
-DEFAULT_SETUP_HOURS = 2
-```
-
-## Troubleshooting
-
-### "No events found with Process_Event = YES"
-
-- Check your CSV has a `Process_Event` column (case-insensitive)
-- Make sure at least one row has `YES` (not "yes " with trailing space)
-- Verify CSV encoding is UTF-8
-
-### Date/Time Not Parsing
-
-- Use supported formats (see above)
-- Check for typos in month abbreviations
-- Ensure time includes AM/PM
-
-### Wrong Venue Code
-
-- Add the venue to `VENUE_CODES` dictionary
-- Use exact match or partial match (script checks both)
-
-## Files & Folders
-
-| Path | Description |
-|------|-------------|
-| `input_csv/` | **Place your CSV files here** - script auto-detects all CSVs |
-| `output/` | **Output folder** - generated notes saved here |
-| `generate_internal_notes.py` | Main script |
-| `requirements.txt` | Dependencies (standard library only) |
-| `sample_events.csv` | Sample CSV with Setup_Requirements |
-
-## Requirements
-
-- Python 3.7 or higher
-- No external dependencies (uses only standard library)
-
-## Support
-
-For issues or feature requests, contact your system administrator or modify the script directly - it's well-commented and easy to customize.

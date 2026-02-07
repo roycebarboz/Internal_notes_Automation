@@ -985,23 +985,19 @@
       "opacity": 100,
       "angle": 0,
       "seed": 844480264,
-      "version": 245,
-      "versionNonce": 2118868744,
+      "version": 246,
+      "versionNonce": 2107729449,
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
       "roundness": null,
       "boundElements": [
         {
-          "id": "obBzcF3m6TWuoXOB4csaC",
-          "type": "arrow"
-        },
-        {
           "id": "7lcROsxYEza-8ew3MuuRF",
           "type": "arrow"
         }
       ],
-      "updated": 1770263625800,
+      "updated": 1770501492070,
       "link": null,
       "locked": false,
       "index": "b19"
@@ -1047,9 +1043,9 @@
     {
       "type": "text",
       "id": "yFuokHo031m2D9L9OGybT",
-      "x": 3444.9348448913443,
-      "y": 1062.2123696536235,
-      "width": 72.60391235351562,
+      "x": 3422.6549523811955,
+      "y": 1094.9900654009984,
+      "width": 172.04580688476562,
       "height": 17.5,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "#ffffff",
@@ -1060,23 +1056,23 @@
       "opacity": 100,
       "angle": 0,
       "seed": 474777352,
-      "version": 95,
-      "versionNonce": 2066095480,
+      "version": 122,
+      "versionNonce": 1428202185,
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
       "roundness": null,
       "boundElements": [],
-      "updated": 1770262548301,
+      "updated": 1770501690375,
       "link": null,
       "locked": false,
       "fontSize": 14,
       "fontFamily": 6,
-      "text": "Setup TIme",
+      "text": "Setup and Breakdown time",
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": "7lcROsxYEza-8ew3MuuRF",
-      "originalText": "Setup TIme",
+      "originalText": "Setup and Breakdown time",
       "lineHeight": 1.25,
       "baseline": 13,
       "index": "b1C",
@@ -1085,10 +1081,10 @@
     {
       "type": "rectangle",
       "id": "heIUXKso-pp7WqL5i7Iro",
-      "x": 3629.4141025268964,
-      "y": 758.9550279873856,
-      "width": 554.9950962366901,
-      "height": 377.8127954156572,
+      "x": 3686.9166505613366,
+      "y": 619.7208850486613,
+      "width": 1308.8921867001702,
+      "height": 738.6829476679216,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "#add8e6",
       "fillStyle": "solid",
@@ -1098,8 +1094,8 @@
       "opacity": 100,
       "angle": 0,
       "seed": 1714841096,
-      "version": 452,
-      "versionNonce": 1098611576,
+      "version": 674,
+      "versionNonce": 1921285127,
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
@@ -1114,7 +1110,7 @@
           "type": "arrow"
         }
       ],
-      "updated": 1770263743549,
+      "updated": 1770501544046,
       "link": null,
       "locked": false,
       "index": "b1D"
@@ -1122,10 +1118,10 @@
     {
       "id": "Oz-bAiT0jE_x-305hDdK4",
       "type": "text",
-      "x": 3644.3018483991477,
-      "y": 797.8614256952142,
-      "width": 525.2196044921875,
-      "height": 300,
+      "x": 3720.453136977828,
+      "y": 639.0623588826221,
+      "width": 1241.8192138671875,
+      "height": 700,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "#ffc9c9",
@@ -1139,30 +1135,30 @@
       "index": "b1DG",
       "roundness": null,
       "seed": 1244424568,
-      "version": 1137,
-      "versionNonce": 1993965688,
+      "version": 1376,
+      "versionNonce": 1819584649,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1770262742132,
+      "updated": 1770501544476,
       "link": null,
       "locked": false,
-      "text": "Setup time\n By default 2 hrs before the event\nEdge Cases:\n*if no time in between or  30 min< time the prev and\nnext event notify manager or use SHARP at time\nformat or both\n*If the event is in the evening and there is no event\nhappening in between then setup time at 11 AM\n*If the event is on weekends and there is no back to\nback event in the same venue the put the setup on\nfriday if there is NO event happening on Friday in the\nsame venue  ",
+      "text": "RULES:\n\nTemplate\nAccount Number: \nReservation Number: MMDDVENUE_CODE (Venue codes are derived from location names see VENUE_CODES dictionary)\nVENUE_setup_label: (use the setup label dictionary)\nPlease set up on (fri)DAY, MONTH DAY_NO, at TIME AM/PM\nSETUP_INSTRUCTION (Already present)\nPlease break down on (fri)DAY, MONTH DAY_NO, at TIME AM/PM\n\nVenue_code: (Get from VENUES_CODES_dictionary)\n\nSetup time\n By default 2 hrs before the event\nEdge Cases:\n* there should be no setup time between 12-1 pm (lunch break)\n*Facilities work hours: 8:00 AM - 5:00 PM so if the event is early of eg: 8 AM then setup at 6 AM\n*if no time in between or  30 min< time the prev and next event notify manager or use SHARP at time format or both\n*If the event is in the evening and there is no event happening in between then setup time at 11 AM\n*If the event is on weekends and there is no back to back event in the same venue the put the setup on friday if there is NO\nevent happening on Friday in the same venue \n\nBreakdown time\n By default After the event\nEdge Cases:\n*if the event ends after 3 PM then set it to the next day in the AM NO specific time \n*exception for above if next day is saturday or sunday\nand there is no Setups for the event then put the break down time can be till 4 PM cu workers shift is from 8 AM to 5PM ",
       "fontSize": 20,
       "fontFamily": 5,
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": "heIUXKso-pp7WqL5i7Iro",
-      "originalText": "Setup time\n By default 2 hrs before the event\nEdge Cases:\n*if no time in between or  30 min< time the prev and next event notify manager or use SHARP at time format or both\n*If the event is in the evening and there is no event happening in between then setup time at 11 AM\n*If the event is on weekends and there is no back to back event in the same venue the put the setup on friday if there is NO event happening on Friday in the same venue  ",
+      "originalText": "RULES:\n\nTemplate\nAccount Number: \nReservation Number: MMDDVENUE_CODE (Venue codes are derived from location names see VENUE_CODES dictionary)\nVENUE_setup_label: (use the setup label dictionary)\nPlease set up on (fri)DAY, MONTH DAY_NO, at TIME AM/PM\nSETUP_INSTRUCTION (Already present)\nPlease break down on (fri)DAY, MONTH DAY_NO, at TIME AM/PM\n\nVenue_code: (Get from VENUES_CODES_dictionary)\n\nSetup time\n By default 2 hrs before the event\nEdge Cases:\n* there should be no setup time between 12-1 pm (lunch break)\n*Facilities work hours: 8:00 AM - 5:00 PM so if the event is early of eg: 8 AM then setup at 6 AM\n*if no time in between or  30 min< time the prev and next event notify manager or use SHARP at time format or both\n*If the event is in the evening and there is no event happening in between then setup time at 11 AM\n*If the event is on weekends and there is no back to back event in the same venue the put the setup on friday if there is NO event happening on Friday in the same venue \n\nBreakdown time\n By default After the event\nEdge Cases:\n*if the event ends after 3 PM then set it to the next day in the AM NO specific time \n*exception for above if next day is saturday or sunday\nand there is no Setups for the event then put the break down time can be till 4 PM cu workers shift is from 8 AM to 5PM ",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
       "type": "arrow",
       "id": "7lcROsxYEza-8ew3MuuRF",
-      "x": 3618.4141025268964,
-      "y": 968.6517360968569,
-      "width": 274.35460291758864,
-      "height": 237.49732451994942,
+      "x": 3683.2962120378484,
+      "y": 1040.3444961697303,
+      "width": 349.2367124285406,
+      "height": 126.79113846253654,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
       "fillStyle": "solid",
@@ -1172,8 +1168,8 @@
       "opacity": 100,
       "angle": 0,
       "seed": 450021384,
-      "version": 973,
-      "versionNonce": 2042802552,
+      "version": 1305,
+      "versionNonce": 2020827561,
       "isDeleted": false,
       "groupIds": [],
       "frameId": null,
@@ -1186,26 +1182,18 @@
           "id": "yFuokHo031m2D9L9OGybT"
         }
       ],
-      "updated": 1770262742132,
+      "updated": 1770501701017,
       "link": null,
       "locked": false,
       "startBinding": {
         "elementId": "heIUXKso-pp7WqL5i7Iro",
-        "mode": "orbit",
-        "fixedPoint": [
-          0.0039018547940174375,
-          0.5248629167395931
-        ],
-        "focus": 0
+        "focus": 0.30949334162049186,
+        "gap": 3.620438523487792
       },
       "endBinding": {
         "elementId": "ALp2pm2xShoS6My7TMsJs",
-        "mode": "orbit",
-        "fixedPoint": [
-          0.8444843824362755,
-          0.8444843824362762
-        ],
-        "focus": 0
+        "focus": 0.28337994671636174,
+        "gap": 1
       },
       "lastCommittedPoint": null,
       "startArrowhead": null,
@@ -1216,191 +1204,12 @@
           0
         ],
         [
-          -274.35460291758864,
-          237.49732451994942
+          -349.2367124285406,
+          126.79113846253654
         ]
       ],
       "index": "b1DV",
       "moveMidPointsWithElement": false
-    },
-    {
-      "type": "rectangle",
-      "id": "dGQr4rrUFBK67IqcQUwKG",
-      "x": 3633.2045230159874,
-      "y": 1272.3195242077709,
-      "width": 554.9950962366901,
-      "height": 339.5977590289985,
-      "strokeColor": "#1e1e1e",
-      "backgroundColor": "#add8e6",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "angle": 0,
-      "seed": 1996499976,
-      "version": 448,
-      "versionNonce": 1562835464,
-      "isDeleted": false,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "boundElements": [
-        {
-          "type": "text",
-          "id": "uS5RfEueaY7pLhF3LhhK_"
-        },
-        {
-          "id": "obBzcF3m6TWuoXOB4csaC",
-          "type": "arrow"
-        }
-      ],
-      "updated": 1770263733020,
-      "link": null,
-      "locked": false,
-      "index": "b1K"
-    },
-    {
-      "id": "uS5RfEueaY7pLhF3LhhK_",
-      "type": "text",
-      "x": 3638.8522481362857,
-      "y": 1342.1184037222702,
-      "width": 543.6996459960938,
-      "height": 200,
-      "angle": 0,
-      "strokeColor": "#1e1e1e",
-      "backgroundColor": "#ffc9c9",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "index": "b1L",
-      "roundness": null,
-      "seed": 1429039880,
-      "version": 1122,
-      "versionNonce": 942326280,
-      "isDeleted": false,
-      "boundElements": [],
-      "updated": 1770263386343,
-      "link": null,
-      "locked": false,
-      "text": "Breakdown time\n By default After the event\nEdge Cases:\n*if the event ends after 3 PM then set it to the next\nday in the AM NO specific time \n*exception for above if next day is saturday or sunday\nand there is no Setups for the event then put the\nbreak down time can be till 4 PM  ",
-      "fontSize": 20,
-      "fontFamily": 5,
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "dGQr4rrUFBK67IqcQUwKG",
-      "originalText": "Breakdown time\n By default After the event\nEdge Cases:\n*if the event ends after 3 PM then set it to the next day in the AM NO specific time \n*exception for above if next day is saturday or sunday\nand there is no Setups for the event then put the break down time can be till 4 PM  ",
-      "autoResize": true,
-      "lineHeight": 1.25
-    },
-    {
-      "type": "arrow",
-      "id": "obBzcF3m6TWuoXOB4csaC",
-      "x": 3622.2045230159874,
-      "y": 1439.9783768351656,
-      "width": 278.1450234066797,
-      "height": 223.47769599802336,
-      "strokeColor": "#1e1e1e",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "angle": 0,
-      "seed": 425380360,
-      "version": 991,
-      "versionNonce": 1633414264,
-      "isDeleted": false,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": {
-        "type": 2
-      },
-      "boundElements": [
-        {
-          "type": "text",
-          "id": "yqymNWN6SaEeKsV7-K3mg"
-        }
-      ],
-      "updated": 1770262854235,
-      "link": null,
-      "locked": false,
-      "startBinding": {
-        "elementId": "dGQr4rrUFBK67IqcQUwKG",
-        "mode": "orbit",
-        "fixedPoint": [
-          0.0039018547940174375,
-          0.5248629167395931
-        ],
-        "focus": 0
-      },
-      "endBinding": {
-        "elementId": "ALp2pm2xShoS6My7TMsJs",
-        "mode": "orbit",
-        "fixedPoint": [
-          0.7741999824980413,
-          0.2258000175019597
-        ],
-        "focus": 0
-      },
-      "lastCommittedPoint": null,
-      "startArrowhead": null,
-      "endArrowhead": "arrow",
-      "points": [
-        [
-          0,
-          0
-        ],
-        [
-          -278.1450234066797,
-          -223.47769599802336
-        ]
-      ],
-      "index": "b1M",
-      "moveMidPointsWithElement": false
-    },
-    {
-      "type": "text",
-      "id": "yqymNWN6SaEeKsV7-K3mg",
-      "x": 3428.119064230127,
-      "y": 1297.8563938947343,
-      "width": 110.02589416503906,
-      "height": 17.5,
-      "strokeColor": "#1e1e1e",
-      "backgroundColor": "#ffffff",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "angle": 0,
-      "seed": 1317292296,
-      "version": 116,
-      "versionNonce": 1314519672,
-      "isDeleted": false,
-      "groupIds": [],
-      "frameId": null,
-      "roundness": null,
-      "boundElements": [],
-      "updated": 1770262817134,
-      "link": null,
-      "locked": false,
-      "fontSize": 14,
-      "fontFamily": 6,
-      "text": "BreakDown Time",
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "obBzcF3m6TWuoXOB4csaC",
-      "originalText": "BreakDown Time",
-      "lineHeight": 1.25,
-      "baseline": 13,
-      "index": "b1N",
-      "autoResize": true
     },
     {
       "type": "rectangle",
