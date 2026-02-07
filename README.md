@@ -4,6 +4,14 @@
 
 This Python script automates the generation of Internal Events Notes from Coursedog CSV exports.
 
+## Workflow Diagrams
+
+### Manual Process (Before)
+![Manual Process](Internal-notes-manual-process.png)
+
+### Automated Process (After)
+![Automated Process](Internal%20Notes%20(Automated%20with%20python).png)
+
 ## Required CSV Columns
 
 The input CSV must contain these columns:
